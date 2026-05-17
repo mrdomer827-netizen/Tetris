@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>🎵 Гонщик кликер</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 30%, #0a0e1c, #03050a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, sans-serif;
+            touch-action: manipulation;
+            padding: 12px;
+        }
+
+        /* основной виджет TikTok-стиля */
+        .tiktok-container {
+            max-width: 420px;
+            width: 100%;
+            background: rgba(18, 22, 35, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 56px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 70, 120, 0.3);
+            padding: 20px 18px 28px;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* хедер с балансом и лвл */
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            background: #0f111ad9;
+            border-radius: 60px;
+            padding: 12px 18px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(4px);
+            border: 1px solid #ff2a5e33;
+        }
+
+        .coin-box {
+            background: #ffd96620;
+            border-radius: 40px;
+            padding: 5px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .coin-icon {
+            font-size: 28px;
+            filter: drop-shadow(0 2px 3px #ffaa33);
+        }
+
+        .coin-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #ffe6b3;
+            text-shadow: 0 2px 3px #ff7700;
+            letter-spacing: 1px;
+        }
+
+        .level-badge {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            padding: 5px 18px;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* зона тапа (машина + анимация) */
+        .tap-area {
+            background: linear-gradient(145deg, #1b1f2e, #131724);
+            border-radius: 68px;
+            padding: 20px 16px;
+            margin-bottom: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.08s linear;
+            border: 1px solid #ff4d6d66;
+            box-shadow: inset 0 1px 3px #ffffff1a, 0 12px 24px rgba(0,0,0,0.5);
+        }
+
+        .tap-area:active {
+            transform: scale(0.97);
+        }
+
+        .car-emoji {
+            font-size: 96px;
+            filter: drop-shadow(0 8px 12px rgba(0,0,0,0.6));
+            transition: 0.05s linear;
+        }
+
+        .tap-hint {
+            color: #ffb347;
+            font-weight: bold;
+            margin-top: 8px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            background: #00000066;
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* визуальный эффект + монетка */
+        .floating-number {
+            position: fixed;
+            pointer-events: none;
+            font-weight: bold;
+            font-size: 28px;
+            color: #ffdf80;
+            text-shadow: 0 0 6px #ff6600;
+            z-index: 1000;
+            animation: floatUp 0.6s ease-out forwards;
+            font-family: monospace;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0px) scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-90px) scale(1.2);
+            }
+        }
+
+        /* секция улучшений (прокачка как в тикток кликерах) */
+        .upgrades {
+            background: #0b0f18aa;
+            border-radius: 44px;
+            padding: 18px;
+            backdrop-filter: blur(8px);
+            margin-top: 8px;
+        }
+
+        .upgrade-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffcd94;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+
+        .upgrade-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .upgrade-item {
+            background: #1e243bb3;
+            border-radius: 60px;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #ffb34733;
+            transition: 0.1s;
+        }
+
+        .upgrade-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .upgrade-name {
+            font-weight: bold;
+            color: #ffdb9f;
+            font-size: 1rem;
+        }
+
+        .upgrade-desc {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .upgrade-cost {
+            background: #2a2f44;
+            border-radius: 40px;
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            color: #ffd966;
+        }
+
+        .buy-btn {
+            background: linear-gradient(95deg, #ff9800, #ff5722);
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 8px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.08s linear;
+            box-shadow: 0 2px 6px black;
+        }
+
+        .buy-btn:active {
+            transform: scale(0.94);
+        }
+
+        .buy-btn.disabled {
+            opacity: 0.5;
+            transform: none;
+            pointer-events: none;
+        }
+
+        /* пассивный доход */
+        .passive-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0c0f1acc;
+            border-radius: 48px;
+            padding: 12px 18px;
+            margin-top: 16px;
+            font-size: 14px;
+            border: 1px solid #ffaa3344;
+        }
+
+        .earn-rate {
+            color: #7effb3;
+            font-weight: bold;
+        }
+
+        /* подсказка тикток стиль */
+        .tiktok-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #ffb561aa;
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+        }
+
+        @media (max-width: 480px) {
+            .tiktok-container {
+                padding: 14px;
+            }
+            .car-emoji {
+                font-size: 70px;
+            }
+            .coin-value {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="tiktok-container">
+    <div class="stats-bar">
+        <div class="coin-box">
+            <span class="coin-icon">💰</span>
+            <span class="coin-value" id="coinDisplay">0</span>
+        </div>
+        <div class="level-badge">
+            <span>🏆</span> LVL <span id="levelDisplay">1</span>
+        </div>
+    </div>
+
+    <!-- зона тапа -->
+    <div class="tap-area" id="tapZone">
+        <div class="car-emoji" id="carEmoji">🏎️💨</div>
+        <div class="tap-hint">👇👇👇 ТАПАЙ ПО МАШИНЕ 👇👇👇</div>
+        <div style="font-size: 12px; margin-top: 5px; color:#ffae70;">+ <span id="tapReward">1</span> монета за тап</div>
+    </div>
+
+    <!-- ПРОКАЧКА (улучшения как в тикток играх) -->
+    <div class="upgrades">
+        <div class="upgrade-title">
+            <span>⚡ ПРОКАЧКА ⚡</span>
+        </div>
+        <div class="upgrade-grid">
+            <div class="upgrade-item" id="upgradeTap">
+                <div class="upgrade-info">
+                    <span class="upgrade-name">👆 УРОВЕНЬ ТАПА</span>
+                    <span class="upgrade-desc">+1 монета за тап</span>
+                </div>
+                <div class="upgrade-cost" id="tapCostDisplay">💰 20</div>
+                <button class="buy-btn" id="tapUpgradeBtn">КУПИТЬ</button>
+            </div>
+            <div class="upgrade-item" id="upgradePassive">
+                <div class="upgrade-info">
+                    <span class="upgrade-name">⏱️ ПАССИВНЫЙ ДОХОД</span>
+                    <span class="upgrade-desc">монет/сек (авто-заработок)</span>
+                </div>
+                <div class="upgrade-cost" id="passCostDisplay">💰 50</div>
+                <button class="buy-btn" id="passiveUpgradeBtn">КУПИТЬ</button>
+            </div>
+            <div class="upgrade-item" id="upgradeCrit">
+                <div class="upgrade-info">
+                    <span class="upgrade-name">✨ КРИТИЧЕСКИЙ ТАП</span>
+                    <span class="upgrade-desc">x2 монеты с шансом 15%</span>
+                </div>
+                <div class="upgrade-cost" id="critCostDisplay">💰 120</div>
+                <button class="buy-btn" id="critUpgradeBtn">КУПИТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- пассивный доход + бусты -->
+    <div class="passive-row">
+        <span>📀 ПАССИВНЫЙ ЗАРАБОТОК</span>
+        <span class="earn-rate" id="passiveRate">0</span>
+        <span> 🟢 монет/сек</span>
+    </div>
+    <div class="tiktok-footer">
+        <span>🎵 #TikTokRacer</span>
+        <span>💥 ТАПАЙ И КАЧАЙСЯ</span>
+    </div>
+</div>
+
+<script>
+    // ---------- ИГРОВАЯ ЛОГИКА (TikTok стиль кликер) ----------
+    let coins = 0;
+    let level = 1;          // уровень зависит от общего количества заработанных монет (престиж)
+    let tapPower = 1;       // базовые монеты за тап
+    let passiveIncome = 0;  // монет в секунду
+    let critEnabled = false; // улучшение крита (после покупки)
+    let critChance = 0.15;   // 15% шанс x2
+    let totalEarned = 0;     // для подсчета уровня
+
+    // стоимости улучшений
+    let tapUpgradeCost = 20;
+    let passiveUpgradeCost = 50;
+    let critUpgradeCost = 120;
+
+    // DOM элементы
+    const coinDisplay = document.getElementById('coinDisplay');
+    const levelDisplay = document.getElementById('levelDisplay');
+    const tapRewardSpan = document.getElementById('tapReward');
+    const passiveRateSpan = document.getElementById('passiveRate');
+    const tapCostDisplay = document.getElementById('tapCostDisplay');
+    const passCostDisplay = document.getElementById('passCostDisplay');
+    const critCostDisplay = document.getElementById('critCostDisplay');
+
+    const tapUpgradeBtn = document.getElementById('tapUpgradeBtn');
+    const passiveUpgradeBtn = document.getElementById('passiveUpgradeBtn');
+    const critUpgradeBtn = document.getElementById('critUpgradeBtn');
+    const tapZone = document.getElementById('tapZone');
+
+    // обновление UI (монеты, уровень и внешний вид кнопок)
+    function updateUI() {
+        coinDisplay.innerText = Math.floor(coins);
+        // расчет уровня: каждые 100 монет (накопленных суммарно) повышение уровня
+        let calculatedLevel = 1 + Math.floor(totalEarned / 100);
+        if (calculatedLevel < 1) calculatedLevel = 1;
+        level = calculatedLevel;
+        levelDisplay.innerText = level;
+        
+        tapRewardSpan.innerText = tapPower;
+        passiveRateSpan.innerText = passiveIncome;
+        
+        // отображение стоимостей
+        tapCostDisplay.innerHTML = `💰 ${tapUpgradeCost}`;
+        passCostDisplay.innerHTML = `💰 ${passiveUpgradeCost}`;
+        critCostDisplay.innerHTML = `💰 ${critUpgradeCost}`;
+        
+        // состояние кнопок (блокировка если не хватает)
+        if (coins >= tapUpgradeCost) {
+            tapUpgradeBtn.classList.remove('disabled');
+            tapUpgradeBtn.disabled = false;
+        } else {
+            tapUpgradeBtn.classList.add('disabled');
+            tapUpgradeBtn.disabled = true;
+        }
+        
+        if (coins >= passiveUpgradeCost) {
+            passiveUpgradeBtn.classList.remove('disabled');
+            passiveUpgradeBtn.disabled = false;
+        } else {
+            passiveUpgradeBtn.classList.add('disabled');
+            passiveUpgradeBtn.disabled = true;
+        }
+        
+        if (!critEnabled && coins >= critUpgradeCost) {
+            critUpgradeBtn.classList.remove('disabled');
+            critUpgradeBtn.disabled = false;
+        } else if(critEnabled) {
+            critUpgradeBtn.classList.add('disabled');
+            critUpgradeBtn.disabled = true;
+            critUpgradeBtn.innerText = "✅ АКТИВНО";
+        } else {
+            critUpgradeBtn.classList.add('disabled');
+            critUpgradeBtn.disabled = true;
+        }
+        
+        // дополнительно анимация машины в зависимости от уровня пассивки (визуальный эффект)
+        const carEmoji = document.getElementById('carEmoji');
+        if(passiveIncome >= 8) carEmoji.innerText = '🚀🔥🏎️';
+        else if(passiveIncome >= 3) carEmoji.innerText = '⚡🏎️💨';
+        else carEmoji.innerText = '🏎️💨';
+    }
+    
+    // добавление монет (с учетом крита если нужно)
+    function addCoins(amount, isTap = false) {
+        let finalAmount = amount;
+        let isCritHit = false;
+        if(isTap && critEnabled && Math.random() < critChance) {
+            finalAmount = amount * 2;
+            isCritHit = true;
+            // создать всплывающий крит эффект
+            createFloatingText('🔥 КРИТ x2!', '#ffb347');
+        }
+        coins += finalAmount;
+        totalEarned += finalAmount;
+        if(isTap) {
+            createFloatingNumber('+' + finalAmount, true);
+            if(isCritHit) {
+                createFloatingText('✨ ДВОЙНОЙ УДАР! ✨', '#ffaa55');
+            }
+        } else {
+            // для пассивного дохода показываем маленький эффект
+            createFloatingNumber('+' + finalAmount, false);
+        }
+        updateUI();
+        checkLevelUpReward();
+    }
+    
+    // бонус за повышение уровня (тикток-награда)
+    function checkLevelUpReward() {
+        let neededForNext = (Math.floor(totalEarned / 100) + 1) * 100;
+        if (totalEarned >= neededForNext - 10 && totalEarned % 100 < 15 && totalEarned > 10) {
+            // приятный бонус при переходе уровня (не каждый раз спамить, но раз в ~100 монет)
+            if (Math.floor(totalEarned / 100) > Math.floor((totalEarned - finalAdded)/100)) {
+                // даём бонус 20 монет и сообщение
+                coins += 15;
+                totalEarned += 15;
+                updateUI();
+                createFloatingText('🎉 LVL UP! +15 🎉', '#ffcc44');
+            }
+        }
+        let lastAdded = arguments[1] || 0;
+    }
+    let finalAdded = 0;
+    
+    // визуал парящих чисел (как в тикток кликерах)
+    function createFloatingNumber(text, isTap = true) {
+        const div = document.createElement('div');
+        div.className = 'floating-number';
+        div.innerText = text;
+        div.style.position = 'fixed';
+        div.style.left = (Math.random() * 60 + 20) + '%';
+        div.style.bottom = '35%';
+        div.style.fontSize = isTap ? '32px' : '26px';
+        div.style.fontWeight = 'bold';
+        div.style.color = isTap ? '#ffd966' : '#7aff87';
+        div.style.textShadow = '0 0 4px orange';
+        div.style.zIndex = 9999;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 600);
+    }
+    
+    function createFloatingText(msg, color) {
+        const div = document.createElement('div');
+        div.className = 'floating-number';
+        div.innerText = msg;
+        div.style.position = 'fixed';
+        div.style.left = '50%';
+        div.style.transform = 'translateX(-50%)';
+        div.style.bottom = '45%';
+        div.style.fontSize = '24px';
+        div.style.color = color || '#ffb347';
+        div.style.fontWeight = 'bold';
+        div.style.whiteSpace = 'nowrap';
+        div.style.background = '#000000aa';
+        div.style.padding = '4px 18px';
+        div.style.borderRadius = '60px';
+        div.style.backdropFilter = 'blur(8px)';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 700);
+    }
+    
+    // обработка тапа
+    function handleTap(e) {
+        e.stopPropagation();
+        if (!tapZone) return;
+        // добавляем эффект клика - вибро если поддерживается
+        if (navigator.vibrate) navigator.vibrate(20);
+        addCoins(tapPower, true);
+        // анимация нажатия на зону (уже есть CSS :active)
+        const carDiv = document.querySelector('.car-emoji');
+        carDiv.style.transform = 'scale(0.9)';
+        setTimeout(() => carDiv.style.transform = '', 80);
+    }
+    
+    // улучшение тапа
+    function upgradeTap() {
+        if (coins >= tapUpgradeCost) {
+            coins -= tapUpgradeCost;
+            tapPower++;
+            tapUpgradeCost = Math.floor(tapUpgradeCost * 1.6);
+            if(tapUpgradeCost < 20) tapUpgradeCost = 20;
+            totalEarned = totalEarned; // не меняем
+            updateUI();
+            createFloatingText('🔧 Тап усилен! +1💰', '#ffaa66');
+            if (navigator.vibrate) navigator.vibrate(30);
+        } else {
+            createFloatingText('❌ Не хватает монет!', '#ff8888');
+        }
+    }
+    
+    // улучшение пассивного дохода
+    function upgradePassive() {
+        if (coins >= passiveUpgradeCost) {
+            coins -= passiveUpgradeCost;
+            passiveIncome += 1;
+            passiveUpgradeCost = Math.floor(passiveUpgradeCost * 1.7);
+            if(passiveUpgradeCost < 50) passiveUpgradeCost = 50;
+            updateUI();
+            createFloatingText('📈 Пассивный доход +1/сек', '#88ffaa');
+            if (navigator.vibrate) navigator.vibrate(30);
+        } else {
+            createFloatingText('❌ Недостаточно монет', '#ff8888');
+        }
+    }
+    
+    // улучшение критического удара
+    function upgradeCrit() {
+        if (!critEnabled && coins >= critUpgradeCost) {
+            coins -= critUpgradeCost;
+            critEnabled = true;
+            updateUI();
+            createFloatingText('✨ КРИТ АКТИВИРОВАН! 15% шанс x2 ✨', '#ffaa44');
+            if (navigator.vibrate) navigator.vibrate(50);
+        } else if(critEnabled) {
+            createFloatingText('⚡ Крит уже куплен!', '#cccc99');
+        } else {
+            createFloatingText('💰 Нужно больше монет!', '#ff8888');
+        }
+    }
+    
+    // пассивный доход каждую секунду
+    let passiveInterval = null;
+    function startPassiveIncome() {
+        if(passiveInterval) clearInterval(passiveInterval);
+        passiveInterval = setInterval(() => {
+            if(passiveIncome > 0) {
+                let earn = passiveIncome;
+                addCoins(earn, false);
+                // создаем небольшой эффект "авто-заработок" без флуда сообщений
+                if(Math.random() < 0.3) {
+                    createFloatingText(`⏱️ +${earn} пассив`, '#aaffdd');
+                }
+            }
+        }, 1000);
+    }
+    
+    // бонусное анимированное приветствие (как тикток тренд)
+    function welcomeBonus() {
+        setTimeout(() => {
+            if(coins === 0 && totalEarned === 0) {
+                addCoins(25, false);
+                createFloatingText('🎁 БОНУС НОВИЧКА +25 🎁', '#ffcc88');
+            }
+        }, 500);
+    }
+    
+    // обработка клавиш (для десктопа - еще удобней, но в тиктоке тап)
+    document.addEventListener('keydown', (e) => {
+        if(e.code === 'Space' || e.code === 'ArrowUp') {
+            e.preventDefault();
+            handleTap(e);
+        }
+        if(e.code === 'KeyR') {
+            // секретный рестарт только если игра зависла? нет, лучше без жесткого сброса
+        }
+    });
+    
+    // инициализация кнопок
+    tapZone.addEventListener('click', handleTap);
+    tapUpgradeBtn.addEventListener('click', upgradeTap);
+    passiveUpgradeBtn.addEventListener('click', upgradePassive);
+    critUpgradeBtn.addEventListener('click', upgradeCrit);
+    
+    // стартовые данные
+    function initGame() {
+        coins = 0;
+        totalEarned = 0;
+        tapPower = 1;
+        passiveIncome = 0;
+        critEnabled = false;
+        tapUpgradeCost = 20;
+        passiveUpgradeCost = 50;
+        critUpgradeCost = 120;
+        updateUI();
+        startPassiveIncome();
+        welcomeBonus();
+    }
+    
+    initGame();
+    
+    // Добавляем touchmove prevention на зоне тапа чтобы не скроллило
+    tapZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleTap(e);
+    });
+    tapZone.addEventListener('touchend', (e) => e.preventDefault());
+    
+    // эффект долгого нажатия не мешает
+    let pressTimer;
+    tapZone.addEventListener('touchstart', (e) => {
+        pressTimer = setTimeout(() => {}, 300);
+    });
+    tapZone.addEventListener('touchend', () => {
+        clearTimeout(pressTimer);
+    });
+    
+    // Для мобильных: игровой фон создаёт впечатление тикток-кликера
+    console.log('🎵 TIKTOK RACER — тапай и прокачай тачку до небес!');
+</script>
+</body>
+</html>

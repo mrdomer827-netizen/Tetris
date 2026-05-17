@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Terraria · Небесный мир | Парящие острова</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: linear-gradient(145deg, #0a2a3a, #051520);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-container {
+            background: #1a2a2faa;
+            backdrop-filter: blur(4px);
+            border-radius: 48px;
+            padding: 20px;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.6);
+            border: 1px solid #aaccdd;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 24px;
+            box-shadow: 0 0 0 3px #c0e0ff, 0 12px 28px black;
+            cursor: crosshair;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            gap: 20px;
+            background: #0b1a22cc;
+            padding: 8px 20px;
+            border-radius: 60px;
+            backdrop-filter: blur(8px);
+            flex-wrap: wrap;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+            color: #ddf4ff;
+        }
+        .stat {
+            background: #00000077;
+            padding: 5px 14px;
+            border-radius: 32px;
+        }
+        .inventory {
+            display: flex;
+            gap: 8px;
+            background: #1e3a44cc;
+            padding: 5px 15px;
+            border-radius: 40px;
+        }
+        .slot {
+            background: #1e2a2f;
+            width: 50px;
+            height: 50px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 28px;
+            border: 2px solid #aaccdd;
+            cursor: pointer;
+            transition: 0.05s linear;
+            font-weight: bold;
+            flex-direction: column;
+        }
+        .slot span {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+        .slot.active {
+            border: 3px solid #ffcc66;
+            background: #4a7a6e;
+            transform: scale(1.02);
+            box-shadow: 0 0 8px gold;
+        }
+        .controls {
+            font-size: 12px;
+            color: #cceeff;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .controls span {
+            background: #00000088;
+            padding: 3px 12px;
+            border-radius: 50px;
+        }
+        .build-hint {
+            background: #ffcc44cc;
+            color: #2a2a0a;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: bold;
+        }
+        @media (max-width: 780px) {
+            .slot { width: 40px; height: 40px; font-size: 20px; }
+            .stats { gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="info-panel">
+        <div class="stats">
+            <div class="stat">❤️ <span id="hpValue">5</span></div>
+            <div class="stat">🪵 <span id="woodCount">20</span></div>
+            <div class="stat">☁️ <span id="cloudCount">50</span></div>
+            <div class="stat">🐑 <span id="sheepCount">0</span></div>
+        </div>
+        <div class="inventory" id="inventory">
+            <div class="slot" data-tool="axe">🪓<span>ТОПОР</span></div>
+            <div class="slot active" data-tool="cloud">☁️<span>ОБЛАКО</span></div>
+            <div class="slot" data-tool="wood">🪵<span>ДОСКИ</span></div>
+            <div class="slot" data-tool="dirt">🧱<span>ЗЕМЛЯ</span></div>
+        </div>
+        <div class="controls">
+            <span>WASD / стрелки — полёт/ходьба</span>
+            <span>🖱️ ЛКМ — рубить/стричь</span>
+            <span class="build-hint">🔨 ПКМ — построить выбранный блок в небе</span>
+            <span>🌲 облака не дают упасть!</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const TILE_SIZE = 32;
+        const WORLD_W = 25;
+        const WORLD_H = 16;
+        
+        const TYPES = {
+            AIR: 0,
+            DIRT: 1,
+            WOOD_BLOCK: 2,
+            LEAVES: 3,
+            TREE_TRUNK: 4,
+            CLOUD: 5      // новый тип — облачные блоки
+        };
+        
+        const COLORS = {
+            1: '#8B5A2B',
+            2: '#A87542',
+            3: '#2F6B2F',
+            4: '#6B3E1A',
+            5: '#D4F1F9'
+        };
+        
+        let world = Array(WORLD_H).fill().map(() => Array(WORLD_W).fill(TYPES.AIR));
+        let trees = [];
+        let sheeps = [];
+        
+        let woodResource = 20;
+        let cloudResource = 50;   // облачные блоки для строительства
+        let dirtResource = 30;
+        let selectedTool = 'cloud';
+        
+        // Игрок в небе
+        let player = {
+            x: 400, y: 250, width: 28, height: 28, vx: 0, vy: 0, onGround: true, hp: 5, invincible: 0, canFly: true
+        };
+        
+        // Управление
+        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, ArrowUp: false, KeyW: false, ArrowDown: false, KeyS: false };
+        const GRAVITY = 0.5, JUMP_POWER = -7, WALK_SPEED = 3.5, FLY_SPEED = 3.2;
+        
+        // Генерация небесного мира — парящие острова и облака
+        function generateSkyWorld() {
+            // Создаём несколько парящих островов
+            const islands = [
+                { x: 5, y: 12, width: 6, height: 2, type: TYPES.DIRT },
+                { x: 14, y: 11, width: 5, height: 2, type: TYPES.DIRT },
+                { x: 2, y: 8, width: 4, height: 1, type: TYPES.CLOUD },
+                { x: 18, y: 9, width: 4, height: 1, type: TYPES.CLOUD },
+                { x: 8, y: 5, width: 3, height: 1, type: TYPES.CLOUD }
+            ];
+            
+            for(let island of islands) {
+                for(let i=0; i<island.width; i++) {
+                    for(let j=0; j<island.height; j++) {
+                        const x = island.x + i;
+                        const y = island.y + j;
+                        if(x>=0 && x<WORLD_W && y>=0 && y<WORLD_H) {
+                            world[y][x] = island.type;
+                        }
+                    }
+                }
+            }
+            
+            // Деревья на островах
+            const treePositions = [[6,11], [7,11], [16,10], [17,10]];
+            for(let pos of treePositions) {
+                let treeX = pos[0];
+                let treeY = pos[1]-1;
+                if(treeY>=0 && treeY<WORLD_H && world[treeY][treeX] === TYPES.AIR && world[treeY+1][treeX] !== TYPES.AIR) {
+                    trees.push({ x: treeX, y: treeY, height: 3 });
+                    for(let h=0; h<3; h++) if(treeY+h < WORLD_H) world[treeY+h][treeX] = TYPES.TREE_TRUNK;
+                    if(treeY-1 >=0) world[treeY-1][treeX] = TYPES.LEAVES;
+                    if(treeX+1 < WORLD_W && treeY-1 >=0) world[treeY-1][treeX+1] = TYPES.LEAVES;
+                    if(treeX-1 >=0 && treeY-1 >=0) world[treeY-1][treeX-1] = TYPES.LEAVES;
+                }
+            }
+            
+            // Облака-платформы по всему небу
+            for(let i=0; i<15; i++) {
+                let cloudX = Math.floor(Math.random() * (WORLD_W-3));
+                let cloudY = Math.floor(Math.random() * (WORLD_H-4));
+                if(world[cloudY][cloudX] === TYPES.AIR && world[cloudY+1] && world[cloudY+1][cloudX] === TYPES.AIR) {
+                    world[cloudY][cloudX] = TYPES.CLOUD;
+                    if(Math.random() > 0.6 && cloudX+1<WORLD_W) world[cloudY][cloudX+1] = TYPES.CLOUD;
+                }
+            }
+        }
+        
+        function spawnSheep() {
+            for(let i=0; i<5; i++) {
+                sheeps.push({
+                    x: 100 + Math.random() * 600, y: 200 + Math.random() * 200, width: 26, height: 26, wool: true,
+                    vx: (Math.random() - 0.5) * 1.0
+                });
+            }
+        }
+        
+        // Коллизии
+        function getCollisionAdjust(rect) {
+            const startX = Math.max(0, Math.floor(rect.x / TILE_SIZE));
+            const endX = Math.min(WORLD_W-1, Math.floor((rect.x + rect.w) / TILE_SIZE));
+            const startY = Math.max(0, Math.floor(rect.y / TILE_SIZE));
+            const endY = Math.min(WORLD_H-1, Math.floor((rect.y + rect.h) / TILE_SIZE));
+            for(let y = startY; y <= endY; y++) {
+                for(let x = startX; x <= endX; x++) {
+                    if(world[y][x] !== TYPES.AIR) {
+                        const blockRect = { x: x*TILE_SIZE, y: y*TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+                        if(rect.x + rect.w > blockRect.x && rect.x < blockRect.x + blockRect.w &&
+                           rect.y + rect.h > blockRect.y && rect.y < blockRect.y + blockRect.h) {
+                            const overlapLeft = (rect.x + rect.w) - blockRect.x;
+                            const overlapRight = (blockRect.x + blockRect.w) - rect.x;
+                            const overlapTop = (rect.y + rect.h) - blockRect.y;
+                            const overlapBottom = (blockRect.y + blockRect.w) - rect.y;
+                            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+                            if(minOverlap === overlapLeft) return { dx: -overlapLeft, dy: 0 };
+                            if(minOverlap === overlapRight) return { dx: overlapRight, dy: 0 };
+                            if(minOverlap === overlapTop) return { dx: 0, dy: -overlapTop };
+                            if(minOverlap === overlapBottom) return { dx: 0, dy: overlapBottom };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function updatePlayer() {
+            let moveX = 0, moveY = 0;
+            if(keys.ArrowLeft || keys.KeyA) moveX = -1;
+            if(keys.ArrowRight || keys.KeyD) moveX = 1;
+            if(keys.ArrowUp || keys.KeyW) moveY = -1;
+            if(keys.ArrowDown || keys.KeyS) moveY = 1;
+            
+            // В небе можно летать (как творческий режим)
+            if(moveX !== 0) player.vx = moveX * WALK_SPEED;
+            else player.vx *= 0.95;
+            
+            if(moveY !== 0) {
+                player.vy = moveY * FLY_SPEED;
+                player.onGround = false;
+            } else {
+                player.vy += GRAVITY;
+            }
+            
+            player.x += player.vx;
+            let adjust = getCollisionAdjust({ x: player.x, y: player.y, w: player.width, h: player.height });
+            if(adjust) player.x += adjust.dx;
+            
+            player.y += player.vy;
+            adjust = getCollisionAdjust({ x: player.x, y: player.y, w: player.width, h: player.height });
+            if(adjust) { player.y += adjust.dy; if(adjust.dy !== 0) player.vy = 0; }
+            
+            // Проверка земли под ногами
+            player.onGround = false;
+            let feetRect = { x: player.x+4, y: player.y+player.height, w: player.width-8, h: 4 };
+            const fx = Math.max(0, Math.floor(feetRect.x / TILE_SIZE));
+            const fy = Math.min(WORLD_H-1, Math.floor(feetRect.y / TILE_SIZE));
+            for(let x = fx; x <= Math.min(WORLD_W-1, Math.floor((feetRect.x+feetRect.w)/TILE_SIZE)); x++) {
+                if(fy < WORLD_H && world[fy][x] !== TYPES.AIR) player.onGround = true;
+            }
+            
+            // Границы мира
+            player.x = Math.min(Math.max(player.x, 0), canvas.width - player.width);
+            player.y = Math.min(Math.max(player.y, 0), canvas.height - player.height);
+            if(player.invincible > 0) player.invincible--;
+        }
+        
+        // Рубка дерева
+        function chopTreeAt(tileX, tileY) {
+            for(let i=0; i<trees.length; i++) {
+                const tree = trees[i];
+                for(let h=0; h<tree.height; h++) {
+                    if(tree.x === tileX && tree.y + h === tileY) {
+                        for(let dy=0; dy<tree.height; dy++) {
+                            const yy = tree.y + dy;
+                            if(yy>=0 && yy<WORLD_H && world[yy][tree.x] === TYPES.TREE_TRUNK) world[yy][tree.x] = TYPES.AIR;
+                        }
+                        if(tree.y-1 >=0 && world[tree.y-1][tree.x] === TYPES.LEAVES) world[tree.y-1][tree.x] = TYPES.AIR;
+                        if(tree.x+1 < WORLD_W && tree.y-1>=0 && world[tree.y-1][tree.x+1] === TYPES.LEAVES) world[tree.y-1][tree.x+1] = TYPES.AIR;
+                        if(tree.x-1 >=0 && tree.y-1>=0 && world[tree.y-1][tree.x-1] === TYPES.LEAVES) world[tree.y-1][tree.x-1] = TYPES.AIR;
+                        trees.splice(i,1);
+                        woodResource += 5;
+                        updateUI();
+                        return true;
+                    }
+                }
+            }
+            if(tileY>=0 && tileY<WORLD_H && world[tileY][tileX] === TYPES.LEAVES) {
+                world[tileY][tileX] = TYPES.AIR;
+                woodResource += 1;
+                updateUI();
+                return true;
+            }
+            return false;
+        }
+        
+        // Стрижка овечки
+        function interactSheep(mouseX, mouseY) {
+            for(let s of sheeps) {
+                if(Math.abs(mouseX - s.x - s.width/2) < s.width/2+10 && Math.abs(mouseY - s.y - s.height/2) < s.height/2+10) {
+                    if(s.wool) { s.wool = false; woodResource += 2; updateUI(); }
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function getTileUnderMouse(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const canvasX = (clientX - rect.left) * scaleX;
+            const canvasY = (clientY - rect.top) * scaleY;
+            return { tileX: Math.floor(canvasX / TILE_SIZE), tileY: Math.floor(canvasY / TILE_SIZE), canvasX, canvasY };
+        }
+        
+        function buildBlock(clientX, clientY) {
+            const { tileX, tileY } = getTileUnderMouse(clientX, clientY);
+            if(tileX<0 || tileX>=WORLD_W || tileY<0 || tileY>=WORLD_H) return false;
+            if(world[tileY][tileX] !== TYPES.AIR) return false;
+            
+            const playerRect = { x: player.x, y: player.y, w: player.width, h: player.height };
+            const blockRect = { x: tileX*TILE_SIZE, y: tileY*TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+            if(playerRect.x < blockRect.x+blockRect.w && playerRect.x+playerRect.w > blockRect.x &&
+               playerRect.y < blockRect.y+blockRect.h && playerRect.y+playerRect.h > blockRect.y) return false;
+            
+            if(selectedTool === 'cloud' && cloudResource > 0) {
+                world[tileY][tileX] = TYPES.CLOUD;
+                cloudResource--;
+                updateUI();
+                return true;
+            } else if(selectedTool === 'wood' && woodResource > 0) {
+                world[tileY][tileX] = TYPES.WOOD_BLOCK;
+                woodResource--;
+                updateUI();
+                return true;
+            } else if(selectedTool === 'dirt' && dirtResource > 0) {
+                world[tileY][tileX] = TYPES.DIRT;
+                dirtResource--;
+                updateUI();
+                return true;
+            }
+            return false;
+        }
+        
+        function digBlock(clientX, clientY) {
+            const { tileX, tileY } = getTileUnderMouse(clientX, clientY);
+            if(tileX<0 || tileX>=WORLD_W || tileY<0 || tileY>=WORLD_H) return;
+            const block = world[tileY][tileX];
+            if(block === TYPES.AIR) return;
+            
+            if(selectedTool === 'axe') {
+                if(block === TYPES.TREE_TRUNK || block === TYPES.LEAVES) chopTreeAt(tileX, tileY);
+                return;
+            }
+            
+            if(block === TYPES.DIRT) { world[tileY][tileX] = TYPES.AIR; dirtResource++; updateUI(); }
+            else if(block === TYPES.WOOD_BLOCK) { world[tileY][tileX] = TYPES.AIR; woodResource++; updateUI(); }
+            else if(block === TYPES.LEAVES) { world[tileY][tileX] = TYPES.AIR; woodResource++; updateUI(); }
+            else if(block === TYPES.CLOUD) { world[tileY][tileX] = TYPES.AIR; cloudResource++; updateUI(); }
+        }
+        
+        function updateUI() {
+            document.getElementById('woodCount').innerText = woodResource;
+            document.getElementById('cloudCount').innerText = cloudResource;
+            document.getElementById('sheepCount').innerText = sheeps.filter(s=>s.wool).length;
+            document.getElementById('hpValue').innerText = player.hp;
+        }
+        
+        function updateSheep() {
+            for(let s of sheeps) {
+                s.x += s.vx;
+                if(s.x < 20) { s.x = 20; s.vx = -s.vx; }
+                if(s.x > canvas.width - s.width - 20) { s.x = canvas.width - s.width - 20; s.vx = -s.vx; }
+                if(Math.random() < 0.02) { s.vx += (Math.random() - 0.5)*0.6; s.vx = Math.min(Math.max(s.vx, -1.2), 1.2); }
+                s.y += Math.sin(Date.now() * 0.005 + s.x) * 0.5;
+                // ограничим по y
+                s.y = Math.min(Math.max(s.y, 50), canvas.height-80);
+            }
+        }
+        
+        // Отрисовка небесного мира
+        function drawSkyBackground() {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#1a4a6e');
+            grad.addColorStop(0.6, '#87CEEB');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // облака на фоне
+            ctx.fillStyle = '#FFFFFF88';
+            for(let i=0; i<8; i++) {
+                ctx.beginPath();
+                ctx.ellipse(50 + i*120, 40 + Math.sin(Date.now()*0.001 + i)*10, 50, 30, 0, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        
+        function drawWorld() {
+            for(let y=0; y<WORLD_H; y++) {
+                for(let x=0; x<WORLD_W; x++) {
+                    const type = world[y][x];
+                    if(type !== TYPES.AIR) {
+                        if(type === TYPES.CLOUD) {
+                            ctx.fillStyle = '#E8F4FD';
+                            ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1);
+                            ctx.fillStyle = '#FFFFFFCC';
+                            ctx.fillRect(x*TILE_SIZE+4, y*TILE_SIZE+4, TILE_SIZE-9, TILE_SIZE-9);
+                        } else {
+                            ctx.fillStyle = COLORS[type];
+                            ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1);
+                        }
+                        ctx.strokeStyle = '#88AACC';
+                        ctx.strokeRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1);
+                    }
+                }
+            }
+        }
+        
+        function drawSheep() {
+            for(let s of sheeps) {
+                ctx.fillStyle = s.wool ? '#F5F0DC' : '#BCAA7F';
+                ctx.beginPath();
+                ctx.ellipse(s.x + s.width/2, s.y + s.height/2, s.width/2, s.height/2.5, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#3E2A1F';
+                ctx.beginPath();
+                ctx.ellipse(s.x + s.width*0.3, s.y + s.height*0.4, 3, 4, 0, 0, Math.PI*2);
+                ctx.ellipse(s.x + s.width*0.7, s.y + s.height*0.4, 3, 4, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#F0C0A0';
+                ctx.fillRect(s.x + s.width*0.4, s.y + s.height*0.7, 6, 4);
+            }
+        }
+        
+        function drawPlayer() {
+            if(player.invincible > 0 && (Math.floor(Date.now()/50)%2 === 0)) ctx.fillStyle = '#FFAAAA';
+            else {
+                const grad = ctx.createLinearGradient(player.x, player.y, player.x+player.width, player.y+player.height);
+                grad.addColorStop(0, '#6ECF6E');
+                grad.addColorStop(1, '#3C9E3C');
+                ctx.fillStyle = grad;
+            }
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#2C1A0C';
+            ctx.fillRect(player.x+5, player.y+5, 6, 6);
+            ctx.fillRect(player.x+player.width-11, player.y+5, 6, 6);
+            ctx.fillStyle = '#F4C542';
+            ctx.fillRect(player.x+player.width/2-4, player.y-4, 8, 8);
+        }
+        
+        let mouseWorldX = 0, mouseWorldY = 0;
+        function drawBuildCursor(clientX, clientY) {
+            if(!clientX) return;
+            const { tileX, tileY } = getTileUnderMouse(clientX, clientY);
+            if(tileX>=0 && tileX<WORLD_W && tileY>=0 && tileY<WORLD_H && world[tileY][tileX] === TYPES.AIR) {
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                if(selectedTool === 'cloud') ctx.fillStyle = '#C8E8FF';
+                else if(selectedTool === 'wood') ctx.fillStyle = '#A87542';
+                else ctx.fillStyle = '#8B5A2B';
+                ctx.fillRect(tileX*TILE_SIZE, tileY*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1);
+                ctx.restore();
+                ctx.strokeStyle = 'gold';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(tileX*TILE_SIZE, tileY*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1);
+            }
+        }
+        
+        function drawUI() {
+            ctx.font = "bold 14px monospace";
+            ctx.fillStyle = "#FFF9E0";
+            ctx.shadowBlur = 0;
+            let toolName = selectedTool === 'axe' ? 'ТОПОР' : (selectedTool === 'cloud' ? 'ОБЛАКО ☁️' : (selectedTool === 'wood' ? 'ДОСКИ' : 'ЗЕМЛЯ'));
+            ctx.fillText(`🔧 ${toolName}`, 15, 55);
+            ctx.fillStyle = "#FFD966";
+            ctx.fillText("👉 ПКМ — построить в небе", 15, 80);
+            ctx.fillStyle = "#AAFFDD";
+            ctx.fillText("✨ Небесный мир — летайте свободно!", canvas.width-180, 30);
+        }
+        
+        // Инвентарь
+        const slots = document.querySelectorAll('.slot');
+        slots.forEach(slot => {
+            slot.addEventListener('click', () => {
+                slots.forEach(s => s.classList.remove('active'));
+                slot.classList.add('active');
+                selectedTool = slot.getAttribute('data-tool');
+            });
+        });
+        
+        let lastMouseEvent = null;
+        canvas.addEventListener('mousemove', (e) => { lastMouseEvent = e; });
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if(e.button === 0) {
+                const { canvasX, canvasY } = getTileUnderMouse(e.clientX, e.clientY);
+                if(!interactSheep(canvasX, canvasY)) digBlock(e.clientX, e.clientY);
+            } else if(e.button === 2) {
+                buildBlock(e.clientX, e.clientY);
+            }
+        });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        window.addEventListener('keydown', (e) => {
+            if(keys.hasOwnProperty(e.code)) { keys[e.code] = true; e.preventDefault(); }
+            if(e.code === 'KeyR') { player.hp = 5; player.x = 400; player.y = 250; updateUI(); }
+        });
+        window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.code)) keys[e.code] = false; });
+        
+        function initGame() { generateSkyWorld(); spawnSheep(); updateUI(); }
+        
+        function animate() {
+            updatePlayer();
+            updateSheep();
+            drawSkyBackground();
+            drawWorld();
+            drawSheep();
+            drawPlayer();
+            if(lastMouseEvent) drawBuildCursor(lastMouseEvent.clientX, lastMouseEvent.clientY);
+            drawUI();
+            requestAnimationFrame(animate);
+        }
+        
+        initGame();
+        animate();
+        
+        setInterval(() => { for(let s of sheeps) if(!s.wool && Math.random() < 0.3) s.wool = true; updateUI(); }, 15000);
+    })();
+</script>
+</body>
+</html>
