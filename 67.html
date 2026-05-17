@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>67: Золотая лихорадка | WASD + БЕГ</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            border-radius: 48px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border: 2px solid #ffd700;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 20px;
+            box-shadow: 0 0 0 4px #ffd700, 0 10px 30px black;
+            cursor: pointer;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            gap: 20px;
+            background: #0f0f1aaa;
+            padding: 10px 25px;
+            border-radius: 60px;
+            backdrop-filter: blur(8px);
+            flex-wrap: wrap;
+        }
+
+        .score-box {
+            background: #000000aa;
+            padding: 8px 24px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: #ffd700;
+            font-size: 28px;
+            font-family: monospace;
+        }
+
+        .score-box span {
+            font-size: 16px;
+            color: #fff;
+            margin-right: 10px;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            border: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 8px 28px;
+            border-radius: 40px;
+            color: #1a1a2e;
+            cursor: pointer;
+            transition: 0.1s;
+            font-family: monospace;
+            box-shadow: 0 4px 0 #b45f00;
+        }
+
+        .restart-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #b45f00;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            background: #00000099;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 12px;
+            color: #ffd700;
+            flex-wrap: wrap;
+        }
+
+        .controls span {
+            background: #2a2a3e;
+            padding: 4px 12px;
+            border-radius: 30px;
+        }
+
+        .running-hint {
+            background: #ffaa33cc;
+            color: #1a1a2e;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        @media (max-width: 700px) {
+            .score-box { font-size: 20px; padding: 4px 16px; }
+            .restart-btn { padding: 6px 20px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="700" height="500"></canvas>
+    <div class="info-panel">
+        <div class="score-box">
+            <span>⭐ СОБРАНО 67:</span> <span id="scoreValue">0</span> / <span id="targetValue">67</span>
+        </div>
+        <button class="restart-btn" id="restartBtn">🔄 ЗАНОВО</button>
+        <div class="controls">
+            <span>🕹️ WASD / СТРЕЛКИ</span>
+            <span>🏃‍♂️ SHIFT — БЕГ (быстрее)</span>
+            <span>🖱️ МЫШЬ / ПАЛЕЦ</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const W = 700, H = 500;
+        
+        // ИГРОК
+        let player = {
+            x: W/2,
+            y: H - 70,
+            radius: 18,
+            speed: 4.2,
+            baseSpeed: 4.2,
+            runSpeed: 7.0,
+            isRunning: false
+        };
+        
+        // Предметы 67
+        let items = [];
+        let collected = 0;
+        const TARGET = 67;
+        
+        // Препятствия
+        let obstacles = [];
+        let gameActive = true;
+        let particles = [];
+        let frame = 0;
+        
+        // Управление (WASD + стрелки)
+        const keys = {
+            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false,
+            KeyA: false, KeyD: false, KeyW: false, KeyS: false,
+            ShiftLeft: false, ShiftRight: false
+        };
+        
+        let mouseX = player.x;
+        
+        // --- ГЕНЕРАЦИЯ МИРА ---
+        function generateItems() {
+            items = [];
+            for(let i = 0; i < TARGET; i++) {
+                let x, y, overlap;
+                let attempts = 0;
+                do {
+                    overlap = false;
+                    x = 35 + Math.random() * (W - 70);
+                    y = 45 + Math.random() * (H - 110);
+                    if(Math.hypot(x - player.x, y - player.y) < 55) overlap = true;
+                    for(let item of items) {
+                        if(Math.hypot(item.x - x, item.y - y) < 30) overlap = true;
+                    }
+                    attempts++;
+                    if(attempts > 200) break;
+                } while(overlap);
+                items.push({
+                    x: x, y: y, radius: 14, pulse: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        function generateObstacles() {
+            obstacles = [];
+            let obsCount = 18 + Math.floor(Math.random() * 8);
+            for(let i = 0; i < obsCount; i++) {
+                let x, y, overlap;
+                let attempts = 0;
+                do {
+                    overlap = false;
+                    x = 25 + Math.random() * (W - 50);
+                    y = 30 + Math.random() * (H - 90);
+                    if(Math.hypot(x - player.x, y - player.y) < 50) overlap = true;
+                    for(let item of items) {
+                        if(Math.hypot(item.x - x, item.y - y) < 32) overlap = true;
+                    }
+                    for(let obs of obstacles) {
+                        if(Math.hypot(obs.x - x, obs.y - y) < 38) overlap = true;
+                    }
+                    attempts++;
+                    if(attempts > 150) break;
+                } while(overlap);
+                obstacles.push({ x: x, y: y, radius: 16 });
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('scoreValue').innerText = collected;
+        }
+        
+        function addParticle(x, y) {
+            for(let i = 0; i < 14; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 3.5,
+                    vy: (Math.random() - 0.5) * 3 - 2,
+                    life: 22,
+                    size: 4 + Math.random() * 6
+                });
+            }
+        }
+        
+        // ДВИЖЕНИЕ ИГРОКА (WASD + стрелки)
+        function updatePlayer() {
+            if(!gameActive) return;
+            
+            let moveX = 0, moveY = 0;
+            
+            // Стрелки
+            if(keys.ArrowLeft) moveX -= 1;
+            if(keys.ArrowRight) moveX += 1;
+            if(keys.ArrowUp) moveY -= 1;
+            if(keys.ArrowDown) moveY += 1;
+            
+            // WASD
+            if(keys.KeyA) moveX -= 1;
+            if(keys.KeyD) moveX += 1;
+            if(keys.KeyW) moveY -= 1;
+            if(keys.KeyS) moveY += 1;
+            
+            // Нормализация диагонали
+            if(moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                moveX /= len;
+                moveY /= len;
+            }
+            
+            // БЕГ по SHIFT
+            let isRunningNow = (keys.ShiftLeft || keys.ShiftRight);
+            player.isRunning = isRunningNow;
+            let currentSpeed = player.isRunning ? player.runSpeed : player.baseSpeed;
+            
+            // Обновление позиции
+            let newX = player.x + moveX * currentSpeed;
+            let newY = player.y + moveY * currentSpeed;
+            
+            // Границы
+            player.x = Math.min(Math.max(newX, player.radius + 5), W - player.radius - 5);
+            player.y = Math.min(Math.max(newY, player.radius + 5), H - player.radius - 5);
+            
+            // Дополнительно: следование за мышью (для удобства, но не overriding)
+            if(!moveX && !moveY) {
+                const diff = mouseX - player.x;
+                if(Math.abs(diff) > 3) {
+                    player.x += diff * 0.12;
+                    player.x = Math.min(Math.max(player.x, player.radius + 5), W - player.radius - 5);
+                }
+            }
+        }
+        
+        // СБОР 67 И СТОЛКНОВЕНИЯ
+        function checkCollisions() {
+            if(!gameActive) return;
+            
+            for(let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if(Math.hypot(player.x - item.x, player.y - item.y) < player.radius + item.radius) {
+                    items.splice(i,1);
+                    collected++;
+                    addParticle(item.x, item.y);
+                    updateUI();
+                    if(navigator.vibrate) navigator.vibrate(30);
+                    i--;
+                }
+            }
+            
+            for(let obs of obstacles) {
+                if(Math.hypot(player.x - obs.x, player.y - obs.y) < player.radius + obs.radius) {
+                    gameActive = false;
+                    break;
+                }
+            }
+            
+            if(collected >= TARGET && gameActive) {
+                gameActive = false;
+            }
+        }
+        
+        function updateParticles() {
+            for(let i=0; i<particles.length; i++) {
+                particles[i].x += particles[i].vx;
+                particles[i].y += particles[i].vy;
+                particles[i].vy += 0.15;
+                particles[i].life--;
+                if(particles[i].life <= 0) {
+                    particles.splice(i,1);
+                    i--;
+                }
+            }
+        }
+        
+        // --- ОТРИСОВКА ---
+        function drawBackground() {
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#0a0f2a');
+            grad.addColorStop(1, '#1a1f3a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+            
+            for(let i=0; i<100; i++) {
+                ctx.fillStyle = `rgba(255, 215, 0, ${0.08 + Math.sin(frame*0.02 + i)*0.04})`;
+                ctx.beginPath();
+                ctx.arc( (i*131)%W, (i*57)%H, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        
+        function drawItems() {
+            for(let item of items) {
+                const scale = 1 + Math.sin(frame * 0.1 + item.pulse) * 0.12;
+                ctx.save();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ffcc00';
+                ctx.beginPath();
+                ctx.arc(item.x, item.y, item.radius * scale, 0, Math.PI*2);
+                ctx.fillStyle = '#FFD966';
+                ctx.fill();
+                ctx.fillStyle = '#DAA520';
+                ctx.font = `bold ${Math.floor(22 * scale)}px "Courier New"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('67', item.x, item.y);
+                ctx.restore();
+            }
+        }
+        
+        function drawObstacles() {
+            for(let obs of obstacles) {
+                ctx.save();
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = '#8B0000';
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, obs.radius-1, 0, Math.PI*2);
+                ctx.fillStyle = '#A52A2A';
+                ctx.fill();
+                ctx.fillStyle = '#2a0a0a';
+                ctx.font = 'bold 20px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⛔', obs.x, obs.y);
+                ctx.fillStyle = '#440000';
+                ctx.beginPath();
+                ctx.arc(obs.x-4, obs.y-3, 4, 0, Math.PI*2);
+                ctx.arc(obs.x+4, obs.y-3, 4, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        function drawPlayer() {
+            ctx.save();
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = '#FFAA33';
+            
+            // эффект бега (размытие)
+            if(player.isRunning && gameActive) {
+                ctx.shadowBlur = 20;
+                ctx.globalAlpha = 0.9;
+            }
+            
+            // тело - золотая жилетка
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y, player.radius, player.radius+3, 0, 0, Math.PI*2);
+            ctx.fillStyle = '#FFC107';
+            ctx.fill();
+            ctx.fillStyle = '#D4AF37';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y-2, player.radius-3, player.radius-2, 0, 0, Math.PI*2);
+            ctx.fill();
+            
+            // голова
+            ctx.fillStyle = '#FDD7A4';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y-9, 13, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(player.x-6, player.y-14, 2.8, 0, Math.PI*2);
+            ctx.arc(player.x+6, player.y-14, 2.8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(player.x-7, player.y-15, 1.2, 0, Math.PI*2);
+            ctx.arc(player.x+5, player.y-15, 1.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(player.x, player.y-7, 7, 0.1, Math.PI - 0.1);
+            ctx.strokeStyle = '#7a4a2a';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // золотая цепь
+            ctx.beginPath();
+            ctx.moveTo(player.x-9, player.y-2);
+            ctx.lineTo(player.x+9, player.y-2);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#FFD700';
+            ctx.stroke();
+            
+            ctx.font = 'bold 20px "Courier New"';
+            ctx.fillStyle = '#B8860B';
+            ctx.fillText('67', player.x-10, player.y+4);
+            
+            // следы бега
+            if(player.isRunning && gameActive) {
+                ctx.fillStyle = 'rgba(255,200,0,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(player.x-12, player.y+12, 6, 3, 0, 0, Math.PI*2);
+                ctx.ellipse(player.x+12, player.y+12, 6, 3, 0, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+        
+        function drawParticles() {
+            for(let p of particles) {
+                ctx.globalAlpha = p.life / 22;
+                ctx.fillStyle = `#FFD966`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size/1.5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#FFAA33';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size/2.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawGameStatus() {
+            if(!gameActive) {
+                ctx.font = 'bold 36px "Courier New", monospace';
+                ctx.fillStyle = '#FFD966';
+                ctx.shadowBlur = 6;
+                ctx.textAlign = 'center';
+                if(collected >= TARGET) {
+                    ctx.fillText('✨ ПОБЕДА! 67/67 ✨', W/2, H/2 - 40);
+                    ctx.font = '18px monospace';
+                    ctx.fillStyle = '#ffcc88';
+                    ctx.fillText('Ты собрал все 67! Золотой жилет сияет', W/2, H/2 + 20);
+                } else {
+                    ctx.fillText('💀 GAME OVER 💀', W/2, H/2 - 40);
+                    ctx.font = '18px monospace';
+                    ctx.fillStyle = '#ffaa77';
+                    ctx.fillText(`Собрано: ${collected} / ${TARGET}`, W/2, H/2 + 20);
+                }
+                ctx.textAlign = 'left';
+            }
+            
+            // Прогресс-бар
+            const percent = collected / TARGET;
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(20, 15, 240, 20);
+            ctx.fillStyle = '#FFB347';
+            ctx.fillRect(20, 15, 240 * percent, 20);
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 14px monospace';
+            ctx.fillText(`СБОР 67: ${collected}/${TARGET}`, 20, 34);
+            
+            // индикатор бега
+            if(player.isRunning && gameActive) {
+                ctx.fillStyle = '#FFAA33';
+                ctx.font = 'bold 16px monospace';
+                ctx.fillText('🏃‍♂️ БЕГ АКТИВЕН (SHIFT)', W-160, 35);
+            }
+        }
+        
+        function drawFloatingEffect() {
+            ctx.font = 'bold 26px monospace';
+            ctx.fillStyle = `rgba(255, 215, 0, ${0.3 + Math.sin(frame*0.12)*0.2})`;
+            ctx.fillText('67', player.x+22, player.y-14);
+            ctx.fillText('67', player.x-32, player.y-10);
+        }
+        
+        // --- УПРАВЛЕНИЕ КЛАВИШАМИ (WASD + СТРЕЛКИ) ---
+        function handleKeyDown(e) {
+            const code = e.code;
+            if(keys.hasOwnProperty(code)) {
+                keys[code] = true;
+                e.preventDefault();
+            }
+            if(code === 'KeyR') restartGame();
+        }
+        
+        function handleKeyUp(e) {
+            const code = e.code;
+            if(keys.hasOwnProperty(code)) {
+                keys[code] = false;
+                e.preventDefault();
+            }
+        }
+        
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            let canvasX = (e.clientX - rect.left) * scaleX;
+            canvasX = Math.min(Math.max(canvasX, player.radius + 5), W - player.radius - 5);
+            mouseX = canvasX;
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            let canvasX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            canvasX = Math.min(Math.max(canvasX, player.radius + 5), W - player.radius - 5);
+            mouseX = canvasX;
+        }
+        
+        function restartGame() {
+            gameActive = true;
+            collected = 0;
+            player.x = W/2;
+            player.y = H - 70;
+            player.isRunning = false;
+            updateUI();
+            generateItems();
+            generateObstacles();
+            particles = [];
+            frame = 0;
+        }
+        
+        // --- ЦИКЛ АНИМАЦИИ ---
+        function animate() {
+            if(gameActive) {
+                updatePlayer();
+                checkCollisions();
+                updateParticles();
+            }
+            frame++;
+            
+            drawBackground();
+            drawItems();
+            drawObstacles();
+            drawPlayer();
+            drawParticles();
+            drawFloatingEffect();
+            drawGameStatus();
+            
+            requestAnimationFrame(animate);
+        }
+        
+        function init() {
+            generateItems();
+            generateObstacles();
+            updateUI();
+            
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchstart', (e) => e.preventDefault());
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+        }
+        
+        init();
+        animate();
+    })();
+</script>
+</body>
+</html>
