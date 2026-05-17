@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mortal Kombat Lite · Битва</title>
+    <title>Mortal Kombat: Арена | WASD vs Стрелки</title>
     <style>
         * {
             user-select: none;
@@ -36,6 +36,7 @@
             border-radius: 24px;
             box-shadow: 0 0 0 4px #8b0000, 0 15px 30px black;
             background: #2a1a1a;
+            cursor: pointer;
         }
 
         .info-panel {
@@ -65,21 +66,21 @@
             font-size: 18px;
         }
 
-        .restart-btn {
+        .restart-btn, .menu-btn {
             background: linear-gradient(135deg, #b52e2e, #8b0000);
             border: none;
             font-weight: bold;
-            font-size: 1rem;
-            padding: 8px 28px;
+            font-size: 0.9rem;
+            padding: 8px 20px;
             border-radius: 40px;
             color: #ffdd99;
             cursor: pointer;
             transition: 0.1s;
             font-family: monospace;
-            box-shadow: 0 4px 0 #4a0000;
+            box-shadow: 0 3px 0 #4a0000;
         }
 
-        .restart-btn:active {
+        .restart-btn:active, .menu-btn:active {
             transform: translateY(2px);
             box-shadow: 0 1px 0 #4a0000;
         }
@@ -102,9 +103,110 @@
             font-weight: bold;
         }
 
-        @media (max-width: 800px) {
-            .controls span { font-size: 9px; padding: 3px 8px; }
-            .health { font-size: 14px; }
+        /* МЕНЮ */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-family: 'Courier New', monospace;
+        }
+
+        .menu-card {
+            background: linear-gradient(145deg, #1e1a2a, #0a0812);
+            border-radius: 60px;
+            padding: 35px 45px;
+            text-align: center;
+            border: 2px solid #ffaa44;
+            box-shadow: 0 0 40px rgba(255, 80, 40, 0.4);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .menu-card h1 {
+            color: #ffcc66;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-shadow: 3px 3px 0 #8b0000;
+        }
+
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 35px;
+        }
+
+        .mode-btn {
+            background: #2a1f2f;
+            border: 2px solid #ffaa55;
+            padding: 14px;
+            border-radius: 60px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffdd99;
+            cursor: pointer;
+            transition: 0.1s;
+            font-family: monospace;
+        }
+
+        .mode-btn:hover {
+            background: #aa3a3a;
+            transform: scale(1.02);
+            border-color: gold;
+        }
+
+        .enemy-select {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .enemy-card {
+            background: #111018;
+            border-radius: 40px;
+            padding: 12px 18px;
+            cursor: pointer;
+            border: 2px solid #885533;
+            transition: 0.1s;
+            width: 100px;
+        }
+
+        .enemy-card.selected {
+            border-color: #ffaa44;
+            background: #4a2a2a;
+            box-shadow: 0 0 12px gold;
+        }
+
+        .enemy-card span {
+            font-size: 28px;
+            display: block;
+        }
+
+        .enemy-card p {
+            margin: 5px 0 0;
+            font-size: 12px;
+        }
+
+        .menu-footer {
+            margin-top: 25px;
+            font-size: 11px;
+            color: #aa8866;
+        }
+
+        @media (max-width: 700px) {
+            .mode-btn { font-size: 16px; padding: 10px; }
+            .enemy-card { width: 70px; }
+            .controls span { font-size: 8px; }
         }
     </style>
 </head>
@@ -114,16 +216,34 @@
     <div class="info-panel">
         <div class="health-bars">
             <div class="health">❄️ САБ-ЗИРО: <span id="p1Hp">100</span>%</div>
-            <div class="health">🔥 СКОРПИОН: <span id="p2Hp">100</span>%</div>
+            <div class="health" id="p2NameDisplay">🔥 ПРОТИВНИК: <span id="p2Hp">100</span>%</div>
         </div>
-        <button class="restart-btn" id="restartBtn">⚔️ НОВАЯ СХВАТКА</button>
+        <button class="menu-btn" id="menuBtn">⚙️ МЕНЮ</button>
+        <button class="restart-btn" id="restartBtn">⚔️ РЕСТАРТ</button>
         <div class="controls">
-            <span>⬅️➡️⬆️⬇️ — Движение P1</span>
-            <span>🟢 [X] — Удар</span>
-            <span>🔵 [C] — Блок</span>
-            <span>💥 [V] — Спецатака (Ледяной шар)</span>
-            <span>🔄 R — Рестарт</span>
+            <span>🕹️ P1: WASD | [X] удар | [C] блок | [V] спец</span>
+            <span>🎮 P2: СТРЕЛКИ | [.] удар | [/] блок | [;] спец</span>
         </div>
+    </div>
+</div>
+
+<!-- МЕНЮ -->
+<div id="menuOverlay" class="menu-overlay">
+    <div class="menu-card">
+        <h1>⚡ MORTAL KOMBAT ⚡</h1>
+        <div class="mode-buttons">
+            <div class="mode-btn" data-mode="pvp">👥 PvP — ДРУГ ПРОТИВ ДРУГА</div>
+            <div class="mode-btn" data-mode="pve">🤖 PvE — ПРОТИВ КОМПЬЮТЕРА</div>
+        </div>
+        <div id="enemySelection" style="display: none;">
+            <div style="color: #ffaa66; margin: 10px 0;">ВЫБЕРИ ПРОТИВНИКА:</div>
+            <div class="enemy-select">
+                <div class="enemy-card" data-enemy="scorpion"><span>🔥</span><p>СКОРПИОН<br>агрессивный</p></div>
+                <div class="enemy-card" data-enemy="subzero"><span>❄️</span><p>САБ-ЗИРО<br>снаряды</p></div>
+                <div class="enemy-card" data-enemy="goro"><span>💪</span><p>ГОРО<br>сила + блок</p></div>
+            </div>
+        </div>
+        <div class="menu-footer">⚔️ ВЫБЕРИ РЕЖИМ И НАЧНИ БИТВУ ⚔️</div>
     </div>
 </div>
 
@@ -135,272 +255,243 @@
         const W = 800, H = 450;
         const GROUND_Y = H - 65;
         
-        // Игрок 1 (Саб-Зиро, слева)
-        let p1 = {
-            x: 140,
-            y: GROUND_Y,
-            width: 44,
-            height: 64,
-            hp: 100,
-            maxHp: 100,
-            facingRight: true,
-            attacking: false,
-            attackTimer: 0,
-            block: false,
-            blockTimer: 0,
-            hitTimer: 0,
-            specialCooldown: 0,
-            specialReady: true
-        };
-        
-        // Игрок 2 (Скорпион, справа)
-        let p2 = {
-            x: W - 180,
-            y: GROUND_Y,
-            width: 44,
-            height: 64,
-            hp: 100,
-            maxHp: 100,
-            facingRight: false,
-            attacking: false,
-            attackTimer: 0,
-            block: false,
-            blockTimer: 0,
-            hitTimer: 0,
-            specialCooldown: 0,
-            specialReady: true
-        };
-        
-        // Спецатаки (снаряды)
-        let projectiles = [];
-        
+        let gameMode = null;       // 'pvp' или 'pve'
+        let currentEnemy = 'scorpion';
         let gameActive = true;
         let winner = null;
+        let projectiles = [];
         let frame = 0;
         
-        // Управление P1 (клавиши для Саб-Зиро)
-        const keys = {
-            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false,
+        // ---- ИГРОК 1 (Саб-Зиро, WASD) ----
+        let p1 = {
+            x: 140, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100,
+            facingRight: true, attackTimer: 0, blockTimer: 0, hitTimer: 0, specialCooldown: 0
+        };
+        
+        // ---- ИГРОК 2 ----
+        let p2 = {
+            x: W - 180, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100,
+            facingRight: false, attackTimer: 0, blockTimer: 0, hitTimer: 0, specialCooldown: 0
+        };
+        
+        // Управление P1 (WASD + X, C, V)
+        const keysP1 = {
+            KeyW: false, KeyA: false, KeyS: false, KeyD: false,
             KeyX: false, KeyC: false, KeyV: false
         };
         
-        // AI для противника (простой)
-        let aiTimer = 0;
+        // Управление P2 (стрелки + ., /, ;)
+        const keysP2 = {
+            ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false,
+            Period: false, Slash: false, Semicolon: false
+        };
         
-        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+        // Характеристики врагов
+        const enemyStats = {
+            scorpion: { name: 'СКОРПИОН', color: '#e67a22', specialType: 'fireball', aggression: 0.045, blockChance: 0.3, damage: 9, specialDamage: 13 },
+            subzero: { name: 'САБ-ЗИРО', color: '#4da6ff', specialType: 'iceball', aggression: 0.035, blockChance: 0.4, damage: 8, specialDamage: 12 },
+            goro: { name: 'ГОРО', color: '#aa6644', specialType: 'punch', aggression: 0.05, blockChance: 0.55, damage: 11, specialDamage: 16 }
+        };
+        let currentStats = enemyStats.scorpion;
+        
         function updateUI() {
             document.getElementById('p1Hp').innerText = Math.max(0, p1.hp);
             document.getElementById('p2Hp').innerText = Math.max(0, p2.hp);
+            if(gameMode === 'pve') {
+                document.getElementById('p2NameDisplay').innerHTML = `🔥 ${currentStats.name}: <span id="p2Hp">${Math.max(0, p2.hp)}</span>%`;
+            } else {
+                document.getElementById('p2NameDisplay').innerHTML = `👥 ИГРОК 2: <span id="p2Hp">${Math.max(0, p2.hp)}</span>%`;
+            }
         }
         
-        // Ограничение позиций, чтобы бойцы не выходили за край и не сталкивались
         function clampPositions() {
-            // P1 границы
             if(p1.x < 50) p1.x = 50;
             if(p1.x + p1.width > W - 150) p1.x = W - 150 - p1.width;
-            // P2 границы
             if(p2.x < 100) p2.x = 100;
             if(p2.x + p2.width > W - 50) p2.x = W - 50 - p2.width;
             
-            // Бойцы не могут проходить друг сквозь друга
             if(p1.x + p1.width > p2.x && p1.x < p2.x + p2.width && Math.abs(p1.y - p2.y) < 50) {
-                if(p1.x < p2.x) {
-                    p1.x = p2.x - p1.width;
-                } else {
-                    p2.x = p1.x + p1.width;
-                }
+                if(p1.x < p2.x) p1.x = p2.x - p1.width;
+                else p2.x = p1.x + p1.width;
             }
-            
-            // Направление взгляда (кто куда смотрит)
             if(p1.x < p2.x) p1.facingRight = true;
             else p1.facingRight = false;
-            
             if(p2.x > p1.x) p2.facingRight = true;
             else p2.facingRight = false;
         }
         
-        // Удар (дистанция и урон)
         function tryAttack(attacker, defender, damage, isSpecial = false) {
             if(!gameActive) return false;
             if(attacker.attackTimer > 0) return false;
             if(isSpecial && attacker.specialCooldown > 0) return false;
             
             let distance = Math.abs(attacker.x - defender.x);
-            let attackRange = isSpecial ? 90 : 55;
+            let attackRange = isSpecial ? 95 : 55;
             if(distance < attackRange) {
-                // Если защита
-                if(defender.block && defender.blockTimer > 0) {
-                    let blockDamage = Math.floor(damage * 0.3);
-                    defender.hp -= blockDamage;
-                    if(defender.hp < 0) defender.hp = 0;
-                    updateUI();
-                    // эффект блока
-                    return true;
+                if(defender.blockTimer > 0) {
+                    defender.hp -= Math.floor(damage * 0.3);
                 } else {
                     defender.hp -= damage;
-                    if(defender.hp < 0) defender.hp = 0;
                     defender.hitTimer = 12;
-                    updateUI();
-                    return true;
                 }
+                if(defender.hp < 0) defender.hp = 0;
+                updateUI();
+                return true;
             }
             return false;
         }
         
-        // Спецатака: Саб-Зиро бросает ледяной шар
-        function throwIceBall() {
-            if(!gameActive) return;
-            if(p1.specialCooldown > 0) return;
-            let direction = p1.facingRight ? 1 : -1;
+        function throwProjectile(owner, damage) {
+            let attacker = (owner === 'p1') ? p1 : p2;
+            let direction = attacker.facingRight ? 1 : -1;
             projectiles.push({
-                x: p1.x + (direction > 0 ? p1.width : -10),
-                y: p1.y + 30,
+                x: attacker.x + (direction > 0 ? attacker.width : -10),
+                y: attacker.y + 30,
                 vx: direction * 7,
                 radius: 12,
-                damage: 14,
-                owner: 'p1',
-                life: true
+                damage: damage,
+                owner: owner
             });
-            p1.specialCooldown = 60;
-            p1.attackTimer = 15;
+            attacker.specialCooldown = 55;
+            attacker.attackTimer = 12;
         }
         
-        // AI для P2
+        // AI для PvE
         function updateAI() {
-            if(!gameActive) return;
-            if(p2.hp <= 0) return;
-            
-            // Простой AI: приближается, атакует
+            if(gameMode !== 'pve') return;
+            if(!gameActive || p2.hp <= 0) return;
             let distance = Math.abs(p1.x - p2.x);
             if(distance > 70) {
-                if(p2.x < p1.x) p2.x += 2.5;
-                else if(p2.x > p1.x) p2.x -= 2.5;
+                if(p2.x < p1.x) p2.x += 2.4;
+                else if(p2.x > p1.x) p2.x -= 2.4;
             }
-            
-            // Атака
-            if(p2.attackTimer === 0 && p2.hitTimer === 0 && distance < 65 && Math.random() < 0.035) {
-                let damage = 8;
-                if(tryAttack(p2, p1, damage, false)) {
-                    p2.attackTimer = 25;
+            if(p2.attackTimer === 0 && p2.hitTimer === 0 && distance < 70 && Math.random() < currentStats.aggression) {
+                tryAttack(p2, p1, currentStats.damage, false);
+                p2.attackTimer = 24;
+            }
+            if(p1.attackTimer > 0 && distance < 75 && p2.blockTimer === 0 && Math.random() < currentStats.blockChance) {
+                p2.blockTimer = 22;
+            } else if(p2.blockTimer > 0) p2.blockTimer--;
+            if(p2.specialCooldown === 0 && distance > 40 && distance < 140 && Math.random() < 0.012) {
+                if(currentStats.specialType === 'fireball' || currentStats.specialType === 'iceball') {
+                    throwProjectile('p2', currentStats.specialDamage);
+                } else if(currentStats.specialType === 'punch' && distance < 80) {
+                    tryAttack(p2, p1, currentStats.specialDamage, false);
+                    p2.attackTimer = 30;
+                    p2.specialCooldown = 70;
                 }
-            }
-            
-            // Блок AI если игрок атакует
-            if(p1.attackTimer > 0 && distance < 70 && p2.blockTimer === 0 && Math.random() < 0.6) {
-                p2.block = true;
-                p2.blockTimer = 20;
-            } else {
-                if(p2.blockTimer <= 0) p2.block = false;
-            }
-            
-            // Спецатака AI (редко)
-            if(p2.specialCooldown === 0 && distance > 40 && distance < 130 && Math.random() < 0.01) {
-                // Скорпион — огненный шар
-                let direction = p2.facingRight ? 1 : -1;
-                projectiles.push({
-                    x: p2.x + (direction > 0 ? p2.width : -10),
-                    y: p2.y + 30,
-                    vx: direction * 6.5,
-                    radius: 12,
-                    damage: 13,
-                    owner: 'p2',
-                    life: true
-                });
-                p2.specialCooldown = 65;
-                p2.attackTimer = 15;
             }
         }
         
-        // Обновление таймеров и снарядов
+        // Обработка ввода P1 (WASD)
+        function handleP1Input() {
+            if(!gameActive) return;
+            if(keysP1.KeyA && p1.x > 50) p1.x -= 5;
+            if(keysP1.KeyD && p1.x + p1.width < W - 150) p1.x += 5;
+            if(keysP1.KeyW && p1.y > GROUND_Y - 20) p1.y -= 4.5;
+            if(keysP1.KeyS && p1.y < GROUND_Y) p1.y += 4.5;
+            if(p1.y < GROUND_Y) p1.y += 2;
+            if(p1.y > GROUND_Y) p1.y = GROUND_Y;
+            
+            if(keysP1.KeyX && p1.attackTimer === 0 && p1.hitTimer === 0) {
+                tryAttack(p1, p2, 9, false);
+                p1.attackTimer = 20;
+            }
+            if(keysP1.KeyC && p1.blockTimer === 0) {
+                p1.blockTimer = 28;
+            }
+            if(keysP1.KeyV && p1.specialCooldown === 0 && p1.attackTimer === 0) {
+                throwProjectile('p1', 13);
+            }
+        }
+        
+        // Обработка ввода P2 (стрелки + ., /, ;)
+        function handleP2Input() {
+            if(gameMode !== 'pvp') return;
+            if(!gameActive) return;
+            if(keysP2.ArrowLeft && p2.x > 100) p2.x -= 5;
+            if(keysP2.ArrowRight && p2.x + p2.width < W - 50) p2.x += 5;
+            if(keysP2.ArrowUp && p2.y > GROUND_Y - 20) p2.y -= 4.5;
+            if(keysP2.ArrowDown && p2.y < GROUND_Y) p2.y += 4.5;
+            if(p2.y < GROUND_Y) p2.y += 2;
+            if(p2.y > GROUND_Y) p2.y = GROUND_Y;
+            
+            if(keysP2.Period && p2.attackTimer === 0 && p2.hitTimer === 0) {
+                tryAttack(p2, p1, 9, false);
+                p2.attackTimer = 20;
+            }
+            if(keysP2.Slash && p2.blockTimer === 0) {
+                p2.blockTimer = 28;
+            }
+            if(keysP2.Semicolon && p2.specialCooldown === 0 && p2.attackTimer === 0) {
+                throwProjectile('p2', 12);
+            }
+        }
+        
         function updateTimers() {
             if(p1.attackTimer > 0) p1.attackTimer--;
             if(p2.attackTimer > 0) p2.attackTimer--;
             if(p1.hitTimer > 0) p1.hitTimer--;
             if(p2.hitTimer > 0) p2.hitTimer--;
-            if(p1.blockTimer > 0) { p1.blockTimer--; p1.block = p1.blockTimer > 0; }
-            if(p2.blockTimer > 0) { p2.blockTimer--; p2.block = p2.blockTimer > 0; }
+            if(p1.blockTimer > 0) p1.blockTimer--;
+            if(p2.blockTimer > 0) p2.blockTimer--;
             if(p1.specialCooldown > 0) p1.specialCooldown--;
             if(p2.specialCooldown > 0) p2.specialCooldown--;
             
-            // Снаряды
             for(let i=0; i<projectiles.length; i++) {
                 let pr = projectiles[i];
                 pr.x += pr.vx;
-                if(pr.x < -50 || pr.x > W+50) {
-                    projectiles.splice(i,1);
-                    i--;
-                    continue;
-                }
-                // Попадание в игрока
+                if(pr.x < -50 || pr.x > W+50) { projectiles.splice(i,1); i--; continue; }
                 let target = (pr.owner === 'p1') ? p2 : p1;
-                let targetRect = { x: target.x, y: target.y, w: target.width, h: target.height };
-                if(pr.x + pr.radius > targetRect.x && pr.x - pr.radius < targetRect.x + targetRect.w &&
-                   pr.y + pr.radius > targetRect.y && pr.y - pr.radius < targetRect.y + targetRect.h) {
-                    if(target.block && target.blockTimer > 0) {
-                        target.hp -= Math.floor(pr.damage * 0.3);
-                    } else {
-                        target.hp -= pr.damage;
-                        target.hitTimer = 12;
-                    }
+                let tr = { x: target.x, y: target.y, w: target.width, h: target.height };
+                if(pr.x + pr.radius > tr.x && pr.x - pr.radius < tr.x + tr.w &&
+                   pr.y + pr.radius > tr.y && pr.y - pr.radius < tr.y + tr.h) {
+                    if(target.blockTimer > 0) target.hp -= Math.floor(pr.damage * 0.3);
+                    else target.hp -= pr.damage;
                     if(target.hp < 0) target.hp = 0;
                     updateUI();
-                    projectiles.splice(i,1);
-                    i--;
+                    projectiles.splice(i,1); i--;
                 }
             }
         }
         
-        // Проверка победы
         function checkVictory() {
-            if(p1.hp <= 0) {
-                gameActive = false;
-                winner = 'SCORPION';
-            } else if(p2.hp <= 0) {
-                gameActive = false;
-                winner = 'SUB-ZERO';
-            }
+            if(p1.hp <= 0) { gameActive = false; winner = gameMode === 'pvp' ? 'ИГРОК 2' : currentStats.name; }
+            else if(p2.hp <= 0) { gameActive = false; winner = 'САБ-ЗИРО'; }
         }
         
-        // Обработка ввода игрока
-        function handleInput() {
-            if(!gameActive) return;
+        // ---- ОТРИСОВКА (с видимыми шкалами HP на канвасе) ----
+        function drawHealthBarsOnCanvas() {
+            // Шкала P1 (слева сверху)
+            ctx.fillStyle = '#3a1a1a';
+            ctx.fillRect(30, 20, 260, 22);
+            ctx.fillStyle = '#4c6eff';
+            ctx.fillRect(30, 20, 260 * (p1.hp / p1.maxHp), 22);
+            ctx.strokeStyle = '#ffcc88';
+            ctx.strokeRect(30, 20, 260, 22);
+            ctx.fillStyle = '#ffdd99';
+            ctx.font = 'bold 14px monospace';
+            ctx.fillText(`САБ-ЗИРО ${Math.max(0, p1.hp)}%`, 35, 38);
             
-            // Движение (стрелки)
-            if(keys.ArrowLeft && p1.x > 50) p1.x -= 5;
-            if(keys.ArrowRight && p1.x + p1.width < W - 150) p1.x += 5;
-            if(keys.ArrowUp && p1.y > GROUND_Y - 20) p1.y -= 4.5;
-            if(keys.ArrowDown && p1.y < GROUND_Y) p1.y += 4.5;
-            // возврат на землю по Y
-            if(p1.y < GROUND_Y) p1.y += 2;
-            if(p1.y > GROUND_Y) p1.y = GROUND_Y;
-            
-            // Атака X
-            if(keys.KeyX && p1.attackTimer === 0 && p1.hitTimer === 0) {
-                let damage = 9;
-                tryAttack(p1, p2, damage, false);
-                p1.attackTimer = 20;
-            }
-            
-            // Блок C
-            if(keys.KeyC && p1.blockTimer === 0) {
-                p1.block = true;
-                p1.blockTimer = 28;
-            }
-            
-            // Спецатака V
-            if(keys.KeyV && p1.specialCooldown === 0 && p1.attackTimer === 0) {
-                throwIceBall();
-            }
+            // Шкала P2 (справа сверху)
+            ctx.fillStyle = '#3a1a1a';
+            ctx.fillRect(W - 290, 20, 260, 22);
+            let p2Percent = p2.hp / p2.maxHp;
+            ctx.fillStyle = gameMode === 'pvp' ? '#ff6644' : (currentStats ? currentStats.color : '#e67a22');
+            ctx.fillRect(W - 290, 20, 260 * p2Percent, 22);
+            ctx.strokeStyle = '#ffcc88';
+            ctx.strokeRect(W - 290, 20, 260, 22);
+            ctx.fillStyle = '#ffdd99';
+            let p2Name = gameMode === 'pvp' ? 'ИГРОК 2' : (currentStats ? currentStats.name : 'ВРАГ');
+            ctx.fillText(`${p2Name} ${Math.max(0, p2.hp)}%`, W - 285, 38);
         }
         
-        // --- ОТРИСОВКА ---
         function drawBackground() {
             const grad = ctx.createLinearGradient(0, 0, 0, H);
             grad.addColorStop(0, '#1a0f12');
             grad.addColorStop(1, '#2d1a1a');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
-            // луна
             ctx.fillStyle = '#ddbb77';
             ctx.shadowBlur = 18;
             ctx.beginPath();
@@ -411,53 +502,27 @@
             ctx.arc(660, 60, 12, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
-            // земля
             ctx.fillStyle = '#2a1a1a';
             ctx.fillRect(0, GROUND_Y+25, W, 60);
             ctx.fillStyle = '#3a2a2a';
-            for(let i=0;i<20;i++) {
-                ctx.fillRect(i*70, GROUND_Y+30, 35, 8);
-            }
+            for(let i=0;i<20;i++) ctx.fillRect(i*70, GROUND_Y+30, 35, 8);
         }
         
-        function drawHealthBar(x, y, width, height, percent, color) {
-            ctx.fillStyle = '#3a1a1a';
-            ctx.fillRect(x, y, width, height);
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y, width * (percent/100), height);
-            ctx.strokeStyle = '#aa8866';
-            ctx.strokeRect(x, y, width, height);
-        }
-        
-        function drawFighter(fighter, isLeftSide, name) {
+        function drawFighter(fighter, isLeftSide, isEnemy = false) {
             const x = fighter.x;
             const y = fighter.y - fighter.height + 5;
             ctx.save();
             if(fighter.hitTimer > 0) ctx.fillStyle = '#ffaa77';
             else if(fighter.blockTimer > 0) ctx.fillStyle = '#6a8aff';
-            else ctx.fillStyle = (name === 'SubZero') ? '#4da6ff' : '#e67a22';
-            
-            ctx.shadowBlur = 5;
+            else ctx.fillStyle = isEnemy ? (currentStats ? currentStats.color : '#e67a22') : '#4da6ff';
             ctx.fillRect(x, y, fighter.width, fighter.height);
-            // лицо
             ctx.fillStyle = '#f7cf9f';
             ctx.fillRect(x+8, y-14, 28, 18);
             ctx.fillStyle = '#222';
             ctx.fillRect(x+14, y-10, 6, 5);
             ctx.fillRect(x+24, y-10, 6, 5);
-            // бандана / маска
-            if(name === 'SubZero') {
-                ctx.fillStyle = '#3399ff';
-                ctx.fillRect(x+4, y-18, 36, 8);
-            } else {
-                ctx.fillStyle = '#cc5500';
-                ctx.fillRect(x+4, y-18, 36, 8);
-            }
-            // костюм детали
-            ctx.fillStyle = '#2a2a3a';
-            ctx.fillRect(x+10, y+20, 6, 20);
-            ctx.fillRect(x+28, y+20, 6, 20);
-            
+            ctx.fillStyle = isEnemy ? '#cc5500' : '#3399ff';
+            ctx.fillRect(x+4, y-18, 36, 8);
             if(fighter.attackTimer > 0) {
                 ctx.beginPath();
                 ctx.moveTo(fighter.facingRight ? x+fighter.width : x-20, y+30);
@@ -471,118 +536,114 @@
         
         function drawProjectiles() {
             for(let pr of projectiles) {
-                ctx.shadowBlur = 8;
                 ctx.fillStyle = (pr.owner === 'p1') ? '#88ccff' : '#ff8844';
                 ctx.beginPath();
                 ctx.arc(pr.x, pr.y, pr.radius-2, 0, Math.PI*2);
                 ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(pr.x, pr.y, pr.radius-5, 0, Math.PI*2);
-                ctx.fill();
-            }
-        }
-        
-        function drawStatusEffects() {
-            if(p1.specialCooldown > 0) {
-                ctx.fillStyle = 'rgba(100,150,255,0.4)';
-                ctx.fillRect(p1.x-5, p1.y-35, 50, 10);
-                ctx.fillStyle = '#88aaff';
-                ctx.fillRect(p1.x-5, p1.y-35, 50 * (1 - p1.specialCooldown/60), 10);
-            }
-            if(p2.specialCooldown > 0) {
-                ctx.fillStyle = 'rgba(255,100,50,0.4)';
-                ctx.fillRect(p2.x+5, p2.y-35, 50, 10);
-                ctx.fillStyle = '#ffaa66';
-                ctx.fillRect(p2.x+5, p2.y-35, 50 * (1 - p2.specialCooldown/65), 10);
             }
         }
         
         function drawGameMessages() {
             if(!gameActive) {
-                ctx.font = 'bold 42px "Courier New", monospace';
+                ctx.font = 'bold 40px monospace';
                 ctx.fillStyle = '#ffdd99';
-                ctx.shadowBlur = 8;
                 ctx.textAlign = 'center';
                 ctx.fillText(`${winner} WINS!`, W/2, H/2 - 50);
-                ctx.font = '18px monospace';
+                ctx.font = '16px monospace';
                 ctx.fillStyle = '#ffaa66';
-                ctx.fillText('Нажми RESTART для новой битвы', W/2, H/2 + 40);
+                ctx.fillText('Нажми МЕНЮ для новой битвы или РЕСТАРТ', W/2, H/2 + 40);
                 ctx.textAlign = 'left';
             }
         }
         
-        function drawControlsHint() {
-            ctx.font = '12px monospace';
-            ctx.fillStyle = '#ffcc88aa';
-            ctx.fillText('X - Удар | C - Блок | V - Ледяной шар', 20, 40);
+        function drawCooldowns() {
+            if(p1.specialCooldown > 0) {
+                ctx.fillStyle = 'rgba(100,150,255,0.4)';
+                ctx.fillRect(p1.x-5, p1.y-35, 50, 8);
+                ctx.fillStyle = '#88aaff';
+                ctx.fillRect(p1.x-5, p1.y-35, 50 * (1 - p1.specialCooldown/55), 8);
+            }
+            if(p2.specialCooldown > 0 && gameMode === 'pvp') {
+                ctx.fillStyle = 'rgba(255,100,50,0.4)';
+                ctx.fillRect(p2.x+5, p2.y-35, 50, 8);
+                ctx.fillStyle = '#ffaa66';
+                ctx.fillRect(p2.x+5, p2.y-35, 50 * (1 - p2.specialCooldown/55), 8);
+            }
         }
         
-        // --- ОБНОВЛЕНИЕ ИГРЫ ---
-        function updateGame() {
-            if(!gameActive) return;
-            handleInput();
-            updateAI();
-            clampPositions();
-            updateTimers();
-            checkVictory();
-        }
-        
-        // --- РЕСТАРТ ---
         function restartGame() {
-            p1 = {
-                x: 140, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100,
-                facingRight: true, attacking: false, attackTimer: 0, block: false,
-                blockTimer: 0, hitTimer: 0, specialCooldown: 0
-            };
-            p2 = {
-                x: W - 180, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100,
-                facingRight: false, attacking: false, attackTimer: 0, block: false,
-                blockTimer: 0, hitTimer: 0, specialCooldown: 0
-            };
+            p1 = { x: 140, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100, facingRight: true, attackTimer: 0, blockTimer: 0, hitTimer: 0, specialCooldown: 0 };
+            p2 = { x: W - 180, y: GROUND_Y, width: 44, height: 64, hp: 100, maxHp: 100, facingRight: false, attackTimer: 0, blockTimer: 0, hitTimer: 0, specialCooldown: 0 };
             projectiles = [];
             gameActive = true;
             winner = null;
             updateUI();
         }
         
-        // --- УПРАВЛЕНИЕ КЛАВИШАМИ ---
-        function handleKeyDown(e) {
+        function setMode(mode, enemy = 'scorpion') {
+            gameMode = mode;
+            currentEnemy = enemy;
+            currentStats = enemyStats[enemy];
+            restartGame();
+            document.getElementById('menuOverlay').style.display = 'none';
+        }
+        
+        // ---- МЕНЮ ----
+        const menuOverlay = document.getElementById('menuOverlay');
+        const enemySelectionDiv = document.getElementById('enemySelection');
+        let selectedMode = null;
+        
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedMode = btn.getAttribute('data-mode');
+                if(selectedMode === 'pvp') setMode('pvp', 'scorpion');
+                else enemySelectionDiv.style.display = 'block';
+            });
+        });
+        
+        document.querySelectorAll('.enemy-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.enemy-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                if(selectedMode === 'pve') setMode('pve', card.getAttribute('data-enemy'));
+            });
+        });
+        
+        document.getElementById('menuBtn').addEventListener('click', () => { menuOverlay.style.display = 'flex'; gameActive = false; });
+        document.getElementById('restartBtn').addEventListener('click', restartGame);
+        
+        // ---- ОБРАБОТЧИКИ КЛАВИШ ----
+        window.addEventListener('keydown', (e) => {
             const code = e.code;
-            if(keys.hasOwnProperty(code)) {
-                keys[code] = true;
-                e.preventDefault();
-            }
+            if(keysP1.hasOwnProperty(code)) { keysP1[code] = true; e.preventDefault(); }
+            if(keysP2.hasOwnProperty(code)) { keysP2[code] = true; e.preventDefault(); }
             if(code === 'KeyR') restartGame();
-        }
-        
-        function handleKeyUp(e) {
+        });
+        window.addEventListener('keyup', (e) => {
             const code = e.code;
-            if(keys.hasOwnProperty(code)) {
-                keys[code] = false;
-                e.preventDefault();
-            }
-        }
+            if(keysP1.hasOwnProperty(code)) keysP1[code] = false;
+            if(keysP2.hasOwnProperty(code)) keysP2[code] = false;
+        });
         
-        // --- АНИМАЦИЯ ---
         function animate() {
-            updateGame();
+            if(gameActive) {
+                handleP1Input();
+                if(gameMode === 'pvp') handleP2Input();
+                else updateAI();
+                clampPositions();
+                updateTimers();
+                checkVictory();
+            }
             drawBackground();
-            drawHealthBar(50, 25, 250, 18, p1.hp, '#4c6eff');
-            drawHealthBar(W-300, 25, 250, 18, p2.hp, '#ff6644');
-            drawFighter(p1, true, 'SubZero');
-            drawFighter(p2, false, 'Scorpion');
+            drawHealthBarsOnCanvas();
+            drawFighter(p1, true, false);
+            drawFighter(p2, false, gameMode !== 'pvp');
             drawProjectiles();
-            drawStatusEffects();
+            drawCooldowns();
             drawGameMessages();
-            drawControlsHint();
             requestAnimationFrame(animate);
         }
         
-        // ИНИЦИАЛИЗАЦИЯ
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        document.getElementById('restartBtn').addEventListener('click', restartGame);
         updateUI();
         animate();
     })();
