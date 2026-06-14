@@ -1,0 +1,192 @@
+import pygame
+import random
+import sys
+
+# Инициализация Pygame
+pygame.init()
+
+# Константы
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+
+# Цвета
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+
+class Player:
+    def __init__(self):
+        self.width = 50
+        self.height = 40
+        self.x = WIDTH // 2 - self.width // 2
+        self.y = HEIGHT - 70
+        self.speed = 7
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        
+    def move(self, keys):
+        if keys[pygame.K_LEFT] and self.x > 0:
+            self.x -= self.speed
+        if keys[pygame.K_RIGHT] and self.x < WIDTH - self.width:
+            self.x += self.speed
+        self.rect.x = self.x
+    
+    def draw(self, screen):
+        # Рисуем космический корабль (треугольник)
+        points = [
+            (self.x + self.width//2, self.y),  # верхушка
+            (self.x + 5, self.y + self.height - 5),  # левый низ
+            (self.x + self.width//2, self.y + self.height - 15),  # середина низа
+            (self.x + self.width - 5, self.y + self.height - 5)  # правый низ
+        ]
+        pygame.draw.polygon(screen, GREEN, points)
+        
+class Bullet:
+    def __init__(self, x, y):
+        self.x = x + 23
+        self.y = y
+        self.width = 4
+        self.height = 10
+        self.speed = 8
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+    
+    def move(self):
+        self.y -= self.speed
+        self.rect.y = self.y
+    
+    def draw(self, screen):
+        pygame.draw.rect(screen, YELLOW, self.rect)
+        
+class Asteroid:
+    def __init__(self):
+        self.size = random.randint(30, 60)
+        self.x = random.randint(0, WIDTH - self.size)
+        self.y = -self.size
+        self.speed = random.randint(3, 8)
+        self.rect = pygame.Rect(self.x, self.y, self.size, self.size)
+    
+    def move(self):
+        self.y += self.speed
+        self.rect.y = self.y
+    
+    def draw(self, screen):
+        pygame.draw.circle(screen, RED, (self.x + self.size//2, self.y + self.size//2), self.size//2)
+        # Добавляем кратеры
+        pygame.draw.circle(screen, (100, 0, 0), (self.x + self.size//3, self.y + self.size//3), self.size//6)
+        pygame.draw.circle(screen, (100, 0, 0), (self.x + 2*self.size//3, self.y + 2*self.size//3), self.size//7)
+    
+def show_text(screen, text, size, x, y, color=WHITE):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect()
+    text_rect.center = (x, y)
+    screen.blit(text_surface, text_rect)
+
+def game_over_screen(screen, score):
+    screen.fill(BLACK)
+    show_text(screen, "GAME OVER", 80, WIDTH//2, HEIGHT//2 - 50, RED)
+    show_text(screen, f"Счёт: {score}", 50, WIDTH//2, HEIGHT//2 + 20, WHITE)
+    show_text(screen, "Нажми R для реванша или Q для выхода", 30, WIDTH//2, HEIGHT//2 + 100, GREEN)
+    pygame.display.flip()
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    return True
+                if event.key == pygame.K_q:
+                    return False
+
+def main():
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Космический защитник")
+    clock = pygame.time.Clock()
+    
+    while True:
+        # Сброс игры
+        player = Player()
+        bullets = []
+        asteroids = []
+        score = 0
+        asteroid_spawn_timer = 0
+        running = True
+        
+        while running:
+            clock.tick(FPS)
+            
+            # Обработка событий
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and len(bullets) < 5:
+                        bullets.append(Bullet(player.x, player.y))
+            
+            # Движение
+            keys = pygame.key.get_pressed()
+            player.move(keys)
+            
+            # Движение пуль
+            for bullet in bullets[:]:
+                bullet.move()
+                if bullet.y < 0:
+                    bullets.remove(bullet)
+            
+            # Спавн астероидов
+            asteroid_spawn_timer += 1
+            if asteroid_spawn_timer > random.randint(30, 80):
+                asteroid_spawn_timer = 0
+                asteroids.append(Asteroid())
+            
+            # Движение астероидов
+            for asteroid in asteroids[:]:
+                asteroid.move()
+                if asteroid.y > HEIGHT:
+                    asteroids.remove(asteroid)
+            
+            # Проверка столкновений пуль с астероидами
+            for bullet in bullets[:]:
+                for asteroid in asteroids[:]:
+                    if bullet.rect.colliderect(asteroid.rect):
+                        bullets.remove(bullet)
+                        asteroids.remove(asteroid)
+                        score += 10
+                        break
+            
+            # Проверка столкновения игрока с астероидами
+            for asteroid in asteroids:
+                if player.rect.colliderect(asteroid.rect):
+                    running = False
+                    break
+            
+            # Рендеринг
+            screen.fill(BLACK)
+            
+            # Рисуем звёзды
+            for _ in range(50):
+                star_x = random.randint(0, WIDTH)
+                star_y = random.randint(0, HEIGHT)
+                pygame.draw.circle(screen, WHITE, (star_x, star_y), 1)
+            
+            player.draw(screen)
+            for bullet in bullets:
+                bullet.draw(screen)
+            for asteroid in asteroids:
+                asteroid.draw(screen)
+            
+            # Счёт
+            show_text(screen, f"Счёт: {score}", 30, 70, 30, WHITE)
+            show_text(screen, f"Пули: {len(bullets)}/5", 30, 70, 60, YELLOW)
+            
+            pygame.display.flip()
+        
+        # Экран game over
+        if not game_over_screen(screen, score):
+            break
+
+if __name__ == "__main__":
+    main()
