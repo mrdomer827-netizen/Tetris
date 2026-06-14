@@ -1,0 +1,179 @@
+import random
+import time
+
+class GameRPSLS:
+    def __init__(self):
+        self.rules = {
+            "камень": ["ножницы", "ящерица"],
+            "ножницы": ["бумага", "ящерица"],
+            "бумага": ["камень", "спок"],
+            "ящерица": ["бумага", "спок"],
+            "спок": ["камень", "ножницы"]
+        }
+        self.choices = list(self.rules.keys())
+        self.player_score = 0
+        self.computer_score = 0
+        self.rounds_played = 0
+        
+    def get_winner(self, player, computer):
+        """Определяет победителя. Возвращает: player, computer, tie"""
+        if player == computer:
+            return "tie"
+        if computer in self.rules[player]:
+            return "player"
+        return "computer"
+    
+    def get_computer_choice(self):
+        """Компьютер выбирает не совсем случайно (немного умный ИИ)"""
+        if self.rounds_played < 3:
+            return random.choice(self.choices)
+        
+        # ИИ запоминает, чем игрок побеждал в последних 3 раундах
+        if hasattr(self, 'last_moves') and len(self.last_moves) >= 3:
+            # Если игрок часто выбирает одно и то же, компьютер выбирает контр-ход
+            most_common = max(set(self.last_moves), key=self.last_moves.count)
+            for choice, beats in self.rules.items():
+                if most_common in beats:
+                    return choice
+        return random.choice(self.choices)
+    
+    def display_round_result(self, player, computer, winner):
+        """Красиво отображает результат раунда"""
+        print(f"\n{'='*40}")
+        print(f"Ты выбрал: {player.upper()}")
+        print(f"Компьютер выбрал: {computer.upper()}")
+        
+        # Эффектная анимация
+        print("\nРезультат: ", end="")
+        for _ in range(3):
+            time.sleep(0.3)
+            print(".", end="", flush=True)
+        print()
+        
+        if winner == "tie":
+            print("🤝 НИЧЬЯ! 🤝")
+        elif winner == "player":
+            print(f"✅ ПОБЕДА! {player.title()} побеждает {computer.title()}!")
+            self.player_score += 1
+        else:
+            print(f"❌ ПОРАЖЕНИЕ! {computer.title()} побеждает {player.title()}!")
+            self.computer_score += 1
+    
+    def display_stats(self):
+        """Показывает статистику игры"""
+        print(f"\n{'='*40}")
+        print(f"📊 СТАТИСТИКА:")
+        print(f"   Игрок: {self.player_score} | Компьютер: {self.computer_score}")
+        print(f"   Сыграно раундов: {self.rounds_played}")
+        if self.rounds_played > 0:
+            win_rate = (self.player_score / self.rounds_played) * 100
+            print(f"   Процент побед: {win_rate:.1f}%")
+        print(f"{'='*40}")
+    
+    def get_player_choice(self):
+        """Получает выбор игрока с проверкой"""
+        print("\nТвой выбор:")
+        for i, choice in enumerate(self.choices, 1):
+            print(f"  {i}. {choice.title()}")
+        print("  0. Выйти из игры")
+        
+        while True:
+            try:
+                choice_num = int(input("\nТвой выбор (0-5): "))
+                if choice_num == 0:
+                    return None
+                if 1 <= choice_num <= 5:
+                    return self.choices[choice_num - 1]
+                print("❌ Пожалуйста, выбери число от 0 до 5!")
+            except ValueError:
+                print("❌ Введи число!")
+    
+    def play_round(self):
+        """Играет один раунд"""
+        player_choice = self.get_player_choice()
+        if player_choice is None:
+            return False
+        
+        computer_choice = self.get_computer_choice()
+        winner = self.get_winner(player_choice, computer_choice)
+        
+        # Сохраняем последние ходы для ИИ
+        if not hasattr(self, 'last_moves'):
+            self.last_moves = []
+        self.last_moves.append(player_choice)
+        if len(self.last_moves) > 5:
+            self.last_moves.pop(0)
+        
+        self.display_round_result(player_choice, computer_choice, winner)
+        self.rounds_played += 1
+        self.display_stats()
+        
+        return True
+    
+    def show_help(self):
+        """Показывает правила игры"""
+        print("\n" + "="*50)
+        print("📖 ПРАВИЛА ИГРЫ:")
+        print("-"*50)
+        print("  ✂️ Ножницы режут бумагу")
+        print("  📄 Бумага заворачивает камень")
+        print("  🪨 Камень давит ящерицу")
+        print("  🦎 Ящерица отравляет Спока")
+        print("  🖖 Спок ломает ножницы")
+        print("  ✂️ Ножницы обезглавливают ящерицу")
+        print("  🦎 Ящерица ест бумагу")
+        print("  📄 Бумага опровергает Спока")
+        print("  🖖 Спок испаряет камень")
+        print("  🪨 Камень разбивает ножницы")
+        print("-"*50)
+        print("💡 У каждого предмета есть 2 победы и 2 поражения!")
+        print("="*50)
+
+def main():
+    print("""
+    ╔══════════════════════════════════════╗
+    ║   КАМЕНЬ, НОЖНИЦЫ, БУМАГА,          ║
+    ║   ЯЩЕРИЦА, СПОК (RPSLS)             ║
+    ╚══════════════════════════════════════╝
+    """)
+    
+    game = GameRPSLS()
+    
+    while True:
+        print("\n" + "="*30)
+        print("🎮 ГЛАВНОЕ МЕНЮ:")
+        print("  1. Играть раунд")
+        print("  2. Показать правила")
+        print("  3. Сбросить статистику")
+        print("  4. Выйти из игры")
+        print("="*30)
+        
+        choice = input("Выбери действие: ").strip()
+        
+        if choice == "1":
+            if not game.play_round():
+                break
+        elif choice == "2":
+            game.show_help()
+        elif choice == "3":
+            game.player_score = 0
+            game.computer_score = 0
+            game.rounds_played = 0
+            game.last_moves = []
+            print("✅ Статистика сброшена!")
+        elif choice == "4":
+            print("\n👋 Спасибо за игру!")
+            if game.rounds_played > 0:
+                print(f"Финальный счёт: {game.player_score} : {game.computer_score}")
+                if game.player_score > game.computer_score:
+                    print("🏆 Ты победил в общем зачёте! 🏆")
+                elif game.player_score < game.computer_score:
+                    print("💀 Компьютер победил... 💀")
+                else:
+                    print("🤝 Общая ничья! 🤝")
+            break
+        else:
+            print("❌ Неверный выбор!")
+
+if __name__ == "__main__":
+    main()
